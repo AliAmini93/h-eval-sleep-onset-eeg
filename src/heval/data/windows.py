@@ -5,7 +5,8 @@ Y_t = 1{T2 - t <= 300 s}. The scored stage of the input epoch is used only to de
 
 Lineage (research archive, tag v0.1.0-paper-review): stage_events / attribute / first_sleep / check_alignment / labels
 from the post-hoc stage audit R2; input_stages_and_first_sleep from the TRAIN stage construction R1 (used by the
-wake-to-N1 table); extract_recording from the CTH v1 data builder and the T1/X1 extractors. Logic unchanged.
+wake-to-N1 table); extract_recording from the CTH v1 data builder (incl. rich features) and the T1/X1 extractors.
+Logic unchanged.
 """
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import numpy as np
 
 from . import edf
 from .cohort import HORIZON_S, LOOKBACK_S, decision_times, stage_at
+from ..models.ablation_networks import rich_features
 from ..models.spectral import channel_features
 
 EPS = 1e-6
@@ -99,11 +101,11 @@ def input_stages_and_first_sleep(events, off, n2, elapsed):
 def extract_recording(psg_path, off, n2):
     """Two-channel [Fpz-Cz, Pz-Oz] windows for every decision point of one recording.
 
-    Returns dict with raw (N, 2, 3000) float32 microvolts, spectral (N, 10) features, elapsed_s, time_to_n2_s,
-    y (300 s horizon) and anchor (T2 - t <= 1200 s)."""
+    Returns dict with raw (N, 2, 3000) float32 microvolts, spectral (N, 10) and rich (N, 18) features (both from the
+    float64 samples), elapsed_s, time_to_n2_s, y (300 s horizon) and anchor (T2 - t <= 1200 s)."""
     path = Path(psg_path)
     landmarks = decision_times(off, n2)
-    raw, feats = [], []
+    raw, feats, rich = [], [], []
     with path.open('rb') as f:
         h = edf.signal_header(f, path.stat().st_size)
         if [ch[1]['label'] for ch in h['eeg_channels']] != list(edf.EEG_CHANNELS):
@@ -118,6 +120,7 @@ def extract_recording(psg_path, off, n2):
                 x.extend(channel_features(samples))
             raw.append(np.asarray(chans, dtype=np.float32))
             feats.append(x)
+            rich.append([v for c in chans for v in rich_features(np.array(c))])
     t = np.array(landmarks)
-    return dict(raw=np.stack(raw), spectral=np.array(feats, float), elapsed_s=t - off, time_to_n2_s=n2 - t,
+    return dict(raw=np.stack(raw), spectral=np.array(feats, float), rich=np.array(rich), elapsed_s=t - off, time_to_n2_s=n2 - t,
                 y=(n2 - t <= HORIZON_S + 1e-8).astype(int), anchor=(n2 - t <= LOOKBACK_S + 1e-8).astype(int))

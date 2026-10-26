@@ -11,7 +11,8 @@ import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-COMMANDS = ['info', 'demo', 'split', 'score', 'fit-references', 'cohort', 'windows', 'fit-speclr', 'fit-rawcnn', 'predict']
+COMMANDS = ['info', 'demo', 'split', 'score', 'fit-references', 'cohort', 'windows', 'fit-speclr', 'fit-rawcnn', 'predict',
+            'ablation-cv', 'representation', 'attribution-checks']
 
 
 def run(args, env, cwd, ok=True):
@@ -79,7 +80,7 @@ def test_window_files_fit_and_predict(tmp_path, cli_env, synthetic_psg):
         w.writerow(['SYN02', 'SYN0', 'NO_STAGES', psg.name, '', ''])
     run(['windows', '--data-root', str(tmp_path), '--cohort-csv', 'cohort.csv', '--recording', 'SYN01', '--out', 'w.npz'], cli_env, tmp_path)
     z = np.load(tmp_path / 'w.npz')
-    assert z['raw'].shape == (49, 2, 3000) and z['spectral'].shape == (49, 10) and int(z['y'].sum()) == 10
+    assert z['raw'].shape == (49, 2, 3000) and z['spectral'].shape == (49, 10) and z['rich'].shape == (49, 18) and int(z['y'].sum()) == 10
     run(['fit-speclr', '--windows', 'w.npz', '--out', 'speclr.json'], cli_env, tmp_path)
     run(['fit-rawcnn', '--windows', 'w.npz', '--out-dir', 'cnn', '--epochs', '1'], cli_env, tmp_path)
     assert sorted(p.name for p in (tmp_path / 'cnn').iterdir()) == ['rawcnn_config.json', 'rawcnn_seed0.pt', 'rawcnn_seed1.pt', 'rawcnn_seed2.pt']
@@ -103,3 +104,42 @@ def test_invalid_inputs_are_rejected_with_messages(tmp_path, cli_env):
     (tmp_path / 'few.txt').write_text('SC01\nST01\n')
     assert 'Too few groups' in run(['split', '--subjects-file', 'few.txt'], env, tmp_path, ok=False).stderr
     assert 'not found' in run(['fit-speclr', '--windows', 'none.npz'], env, tmp_path, ok=False).stderr
+
+
+def _synthetic_window_files(tmp_path, n_persons=10):
+    from heval.analysis.perturbation import spectral_features_np
+    from heval.models.ablation_networks import rich_features
+    from heval.synthetic import synthetic_nights
+    d = synthetic_nights(n_persons=n_persons, seed=1)
+    files = []
+    for p in sorted(set(d['person'])):
+        m = d['person'] == p
+        raw = d['raw'][m]
+        np.savez(tmp_path / f'{p}.npz', raw=raw, spectral=spectral_features_np(raw.astype(np.float64)),
+                 rich=np.array([[v for c in w for v in rich_features(c.astype(float))] for w in raw]), elapsed_s=d['elapsed_s'][m],
+                 time_to_n2_s=d['time_to_n2_s'][m], y=d['y'][m], anchor=(d['time_to_n2_s'][m] <= 1200).astype(int),
+                 person=d['person'][m], recording=d['recording'][m])
+        files.append(f'{p}.npz')
+    return files
+
+
+def test_development_analysis_commands(tmp_path, cli_env):
+    files = _synthetic_window_files(tmp_path)
+    quick = ['--seeds', '0', '--max-epochs', '1', '--grid', '1', '--boot', '100']
+    run(['ablation-cv', '--windows', *files, '--folds', '0', '--archs', 'M2_raw_cnn_binary', 'M3_cthnet', *quick, '--out', 'a.json'],
+        cli_env, tmp_path)
+    a = json.loads((tmp_path / 'a.json').read_text())
+    assert list(a['comparisons']) == ['M2_raw_cnn_binary__vs__M3_cthnet'] and a['n_windows'] == 64
+    run(['representation', '--windows', *files, '--folds', '0', '1', '--battery', 'reported', *quick, '--out', 'r.json'], cli_env, tmp_path)
+    r = json.loads((tmp_path / 'r.json').read_text())
+    assert set(r['perturbation']) == {'P1_fourier_surrogate', 'P2_local_surrogate_2s', 'P3_delta_s1.0', 'P3_theta_s1.0', 'P3_alpha_s1.0',
+                                      'P3_sigma_s1.0', 'P3_beta_s1.0', 'P3_gamma_s1.0', 'P6_delta_phase', 'P5_delta_uniform_control'}
+    assert list(r['followup_F2']) == ['F2f_delta_phase_fpz_only'] and 'M2_raw_cnn__vs__STFT_cnn' in r['matched_cv']['comparisons']
+    run(['fit-rawcnn', '--windows', *files[:2], '--out-dir', 'cnn', '--seeds', '0', '--epochs', '1'], cli_env, tmp_path)
+    run(['attribution-checks', '--windows', *files[:2], '--rawcnn-dir', 'cnn', '--out', 'ig.json'], cli_env, tmp_path)
+    ig = json.loads((tmp_path / 'ig.json').read_text())
+    assert len(ig['randomisation']) == 6 and list(ig['deletion']) == ['3', '6', '12', '24']
+    assert 'must include M3_cthnet' in run(['ablation-cv', '--windows', *files, '--archs', 'A2_no_raw'], cli_env, tmp_path, ok=False).stderr
+    np.savez(tmp_path / 'norich.npz', **{k: v for k, v in np.load(tmp_path / files[0]).items() if k != 'rich'})
+    assert 'lacks the rich features' in run(['representation', '--windows', 'norich.npz'], cli_env, tmp_path, ok=False).stderr
+    assert 'not found' in run(['attribution-checks', '--windows', *files[:1], '--rawcnn-dir', 'none'], cli_env, tmp_path, ok=False).stderr

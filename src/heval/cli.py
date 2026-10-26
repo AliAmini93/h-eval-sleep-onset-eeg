@@ -1,8 +1,9 @@
 """Command-line interface: python -m heval <command> --help.
 
 Data-free:   info, demo, split, score, fit-references
-Data-based:  cohort, windows (need a local Sleep-EDF Expanded v1.0.0 copy), fit-speclr, fit-rawcnn, predict
-             (need window files written by 'windows').
+Data-based:  cohort, windows (need a local Sleep-EDF Expanded v1.0.0 copy), fit-speclr, fit-rawcnn, predict,
+             ablation-cv, representation, attribution-checks (need window files written by 'windows'; the last three
+             are TRAIN-only development analyses).
 """
 import argparse
 import csv
@@ -252,6 +253,88 @@ def cmd_predict(a):
     print(f'written {a.out}: {len(d["y"])} rows')
 
 
+def _development(paths):
+    from .analysis.architecture_ablation import development_table
+    d = _load_windows(paths)
+    rich = []
+    for p in paths:
+        z = np.load(p, allow_pickle=False)
+        if 'rich' not in z.files:
+            raise SystemExit(f'error: {p} lacks the rich features (rewrite it with: python -m heval windows)')
+        rich.append(z['rich'])
+    try:
+        return development_table(d['raw'], d['spectral'], np.concatenate(rich), d['elapsed_s'], d['time_to_n2_s'], d['y'],
+                                 d['person'], d['recording'])
+    except ValueError as exc:
+        raise SystemExit(f'error: {exc}')
+
+
+def _cv_args(a):
+    from .analysis.architecture_ablation import GRID, N_FOLDS
+    if not 1 <= a.grid <= len(GRID) or (a.folds and not set(a.folds) <= set(range(N_FOLDS))):
+        raise SystemExit(f'error: --grid must be 1..{len(GRID)} and --folds within 0..{N_FOLDS - 1}')
+    return dict(folds_to_run=a.folds, max_epochs=a.max_epochs, seeds=tuple(a.seeds), grid=GRID[:a.grid], device=a.device)
+
+
+def cmd_ablation_cv(a):
+    from .analysis.architecture_ablation import ablation_cv, summarise_ablation
+    d = _development(a.windows)
+    archs = a.archs or None
+    if archs is not None and 'M3_cthnet' not in archs:
+        raise SystemExit('error: --archs must include M3_cthnet (the comparator of every variant)')
+    try:
+        oof, _, _, _ = ablation_cv(d, archs=archs, **_cv_args(a))
+    except ValueError as exc:
+        raise SystemExit(f'error: {exc}')
+    out = summarise_ablation(oof, d, n_boot=a.boot)
+    out['note'] = 'TRAIN-only development cross-validation (paper Fig. 7); R > 0 means the full network is better'
+    _dump(out, a.out)
+
+
+def cmd_representation(a):
+    from .analysis import perturbation as P
+    from .analysis.architecture_ablation import person_folds
+    from .analysis.representation import matched_cv, summarise_matched_cv
+    d = _development(a.windows)
+    try:
+        oof, _, _, fold_store = matched_cv(d, **_cv_args(a))
+    except ValueError as exc:
+        raise SystemExit(f'error: {exc}')
+    out = dict(note='TRAIN-only development analysis (paper Fig. 8)', matched_cv=summarise_matched_cv(oof, d, n_boot=a.boot))
+    folds = person_folds(d['person'])
+    pf_all = np.array([folds[p] for p in d['person']])
+    m = np.isin(pf_all, list(fold_store))
+    sub = dict(raw=d['raw'][m], y=d['y'][m], person=d['person'][m], rec_idx=d['rec_idx'][m])
+    pf = pf_all[m]
+    fold_models = {f: P.fold_predictors(st, a.device) for f, st in fold_store.items()}
+    donor = P.fold_donors(sub['person'], d['elapsed'][m], pf)
+    conds = P.conditions(sub['raw'].astype(np.float64), donor) + P.followup_conditions()
+    if a.battery == 'reported':
+        keep = set(P.FIGURE_CONDITIONS) | {'P5_delta_uniform_control', 'F2f_delta_phase_fpz_only'}
+        conds = [c for c in conds if c[0] in keep]
+    res, per_person, _ = P.run_battery(sub, fold_models, pf, oof['T0_constant'][m], conds, a.device)
+    out['perturbation'] = {k: v for k, v in res.items() if not k.startswith('F2')}
+    out['followup_F2'] = {k: v for k, v in res.items() if k.startswith('F2')}
+    if a.battery == 'full':
+        out['band_specificity'] = P.band_specificity(per_person, sub['person'])
+    _dump(out, a.out)
+
+
+def cmd_attribution_checks(a):
+    from .analysis.representation import deletion_check, randomisation_check
+    from .models import raw_cnn
+    d = _load_windows(a.windows)
+    cfg_path = Path(a.rawcnn_dir) / 'rawcnn_config.json'
+    if not cfg_path.is_file():
+        raise SystemExit(f'error: {cfg_path} not found (fit the models with: python -m heval fit-rawcnn)')
+    cfg = json.loads(cfg_path.read_text())
+    models = [m.to(a.device) for m in raw_cnn.load_state_dicts([Path(a.rawcnn_dir) / f'rawcnn_seed{s}.pt' for s in cfg['seeds']])]
+    rnd, ig_map = randomisation_check(models, d['raw'], cfg['raw_scale_uv'], d['y'], d['person'], a.device)
+    dele = deletion_check(models[0], d['raw'], cfg['raw_scale_uv'], d['person'], d['elapsed_s'], ig_map, device=a.device)
+    _dump(dict(note='in-sample attribution sanity checks of a fitted RawCNN ensemble (development data only)',
+               randomisation=rnd, deletion=dele), a.out)
+
+
 def build_parser():
     ap = argparse.ArgumentParser(prog='python -m heval', description='H-EVAL methods (Sleep-EDF sleep-onset forecasting evaluation).')
     sp = ap.add_subparsers(dest='cmd', required=True)
@@ -310,6 +393,29 @@ def build_parser():
     p.add_argument('--rawcnn-dir')
     p.add_argument('--out', required=True)
     p.set_defaults(fn=cmd_predict)
+    for name, fn, hlp in (('ablation-cv', cmd_ablation_cv, 'architecture ablation CV of the predeclared network (Fig. 7)'),
+                          ('representation', cmd_representation, 'matched RawCNN / STFT-CNN / SpecLR CV and perturbations (Fig. 8)')):
+        p = sp.add_parser(name, help=hlp)
+        p.add_argument('--windows', nargs='+', required=True, help='TRAIN window files written by the windows command')
+        p.add_argument('--folds', type=int, nargs='+', help='outer folds to run (default: all 5)')
+        p.add_argument('--seeds', type=int, nargs='+', default=[0, 1, 2])
+        p.add_argument('--max-epochs', type=int, default=40)
+        p.add_argument('--grid', type=int, default=4, help='use the first N of the 4 learning-rate x width configurations')
+        p.add_argument('--boot', type=int, default=10_000)
+        p.add_argument('--device', default='cpu')
+        p.add_argument('--out')
+        if name == 'ablation-cv':
+            p.add_argument('--archs', nargs='+', help='variants to run (must include M3_cthnet)')
+        else:
+            p.add_argument('--battery', choices=('reported', 'full'), default='full',
+                           help='full: all perturbations and controls; reported: those in Fig. 8 and the text')
+        p.set_defaults(fn=fn)
+    p = sp.add_parser('attribution-checks', help='IG randomisation and deletion checks of a fitted RawCNN (in-sample)')
+    p.add_argument('--windows', nargs='+', required=True)
+    p.add_argument('--rawcnn-dir', required=True, help='directory written by fit-rawcnn')
+    p.add_argument('--device', default='cpu')
+    p.add_argument('--out')
+    p.set_defaults(fn=cmd_attribution_checks)
     return ap
 
 
