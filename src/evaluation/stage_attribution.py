@@ -26,7 +26,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[2]
 VERSION = 'H-EVAL-R2-stage-audit-v1-2026-10-24'
 PROTOCOL = REPO / 'docs/decision/h_eval/repair_r2/r2_protocol.md'
-TESTS = Path(__file__).resolve().parent / 'test_r2_stage_audit.py'
+TESTS = REPO / 'scripts/decision/h_eval/repair_r2/test_r2_stage_audit.py'
 RES = REPO / 'results/decision/h_eval/repair_r2'
 LOC = REPO / '.local/h_eval/repair_r2'
 FREEZE = RES / 'r2_freeze_record.json'

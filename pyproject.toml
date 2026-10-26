@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Run safe source checks only by default; legacy tests require local/private artifacts.
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

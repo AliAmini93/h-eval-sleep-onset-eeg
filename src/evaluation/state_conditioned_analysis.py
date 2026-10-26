@@ -23,7 +23,7 @@ from sklearn.linear_model import LogisticRegression
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 PROTOCOL = REPO / 'docs/decision/h_eval/repair_r3b/r3b_protocol_v1.md'
-TESTS = HERE / 'test_r3b_audit.py'
+TESTS = REPO / 'scripts/decision/h_eval/repair_r3b/test_r3b_audit.py'
 RES = REPO / 'results/decision/h_eval/repair_r3b'
 LOC = REPO / '.local/h_eval/repair_r3b'
 REFS = RES / 'r3b_references_v1.json'
