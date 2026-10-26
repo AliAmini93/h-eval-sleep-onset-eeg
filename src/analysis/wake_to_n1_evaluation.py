@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import SplineTransformer
 
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[2]
 TABLE = REPO / '.local/h_eval/discovery_w2s/w2s_table_v1.npz'
 BOOT_N, BOOT_SEED = 10_000, 20261024
 N_FOLDS, N_INNER = 5, 4

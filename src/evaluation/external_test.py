@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-REPO_DEFAULT = HERE.parents[3]
+REPO_DEFAULT = HERE.parents[1]
 
 
 def _imp(path, name):

@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 from scipy.signal import welch, hilbert, butter, sosfiltfilt
 
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[2]
 LOC = REPO / '.local/h_eval/discovery_w2s'
 OUT = LOC / 'w2s_table_v1.npz'
 FS = 100.0

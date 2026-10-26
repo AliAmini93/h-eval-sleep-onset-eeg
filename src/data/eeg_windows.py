@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+REPO = HERE.parents[1]
 MIRROR = 'https://physionet-open.s3.amazonaws.com/sleep-edfx/1.0.0/'
 FALLBACK = 'https://physionet.org/files/sleep-edfx/1.0.0/'
 FS = 100

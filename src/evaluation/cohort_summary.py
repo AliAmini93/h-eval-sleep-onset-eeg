@@ -24,7 +24,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import SplineTransformer
 
-REPO = Path(__file__).resolve().parents[4]
+REPO = Path(__file__).resolve().parents[2]
 DESIGN = REPO / 'docs/decision/h_eval/repair_r1/r1_time_baseline_design.md'
 DATA = REPO / '.local/h_eval/cth_v1/dataset_v1.npz'
 OOF = REPO / '.local/h_eval/cth_v1/cth_oof_predictions_v1.npz'
