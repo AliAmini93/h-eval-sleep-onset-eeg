@@ -1,0 +1,19 @@
+name: H-EVAL source integrity
+on:
+  push:
+    branches: [fix/reproduction-imports-and-preflight-20261026]
+  workflow_dispatch:
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Source syntax and dependency layout only
+        run: python scripts/release_preflight.py --tier source
+      - name: Five synthetic preflight unit tests
+        run: python -m unittest discover -s tests -p test_release_preflight.py -v
