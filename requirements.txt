@@ -1,0 +1,5 @@
+# Packages used by the original research implementations; versions recorded in the project execution environment.
+numpy==1.26.4
+scipy==1.16.0
+scikit-learn==1.6.1
+torch==2.9.1
