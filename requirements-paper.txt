@@ -1,0 +1,11 @@
+# Tested on 2026-10-26 with Python 3.11.15 on Linux. Use an existing environment; this repository creates none.
+# Tier 1 (tables, figures, claims, PDF) needs numpy, matplotlib, pillow, pytest.
+numpy==1.26.4
+matplotlib==3.10.7
+pillow==11.3.0
+pytest==9.1.1
+# Method code under scripts/decision/h_eval (unit tests and data-dependent analyses) additionally needs:
+scipy==1.16.0
+scikit-learn==1.6.1
+torch==2.9.1
+# System tools: TeX Live (pdflatex, bibtex) for the PDF; Liberation Sans fonts for byte-identical figure files.

@@ -1,0 +1,353 @@
+\documentclass{article}
+
+% H-EVAL v8r5 integrated editorial candidate: frozen numbers, figures and experiment outputs unchanged.
+% No new experiments. The NeurIPS 2026 style is used only as an anonymous formatting baseline; no venue has been selected.
+\usepackage[eandd]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\hypersetup{hidelinks} % remove colored PDF link borders; citations remain live
+% Optional build-time link, injected only into a verified review/anonymous build.
+\IfFileExists{code_access_config.tex}{\input{code_access_config.tex}}{}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{placeins}
+\captionsetup{font=small}
+% Float-to-text gap keeps its natural 20pt but no stretch: under \flushbottom, leftover page space (e.g. when a section
+% heading cannot start at a page foot) was otherwise all absorbed below the top float (63pt gap under Fig. 1).
+\setlength{\textfloatsep}{20pt plus 0pt minus 4pt}
+
+\newcommand{\R}{\ensuremath{R}}
+\newcommand{\dww}{\ensuremath{\Delta_{\mathrm{WW}}}}
+\newcommand{\dse}{\ensuremath{\Delta_{\mathrm{SE}}}}
+\newcommand{\ci}[2]{\,(#1,\,#2)}
+\input{tables_generated.tex}
+
+\title{Where Does EEG Sleep-Onset Forecasting Skill Arise?\\ A State-Conditioned Evaluation}
+
+\author{Anonymous Author(s)\\ Affiliation\\ Address\\ \texttt{email}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Pooled accuracy of an event forecast does not reveal which parts of the pre-event trajectory contribute to its improvement. We examine this distinction for 30-second EEG forecasts of the first scored N2 epoch within a five-minute horizon in Sleep-EDF. We preserve the prespecified held-out comparisons, attribute recorded Brier-score differences to the scored input state, and compare EEG predictions with development-fitted references supplied with retrospectively scored state and elapsed time. In the internal test, a spectral model improved on a constant reference by 18.3\%, but 99\% of that improvement accrued on inputs already scored Stage~1. A diagnostic Stage-only reference achieved 26.3\% improvement in that test and 29.5\% in the external cohort, exceeding the spectral forecast in both. Incremental within-state EEG skill was heterogeneous: positive exploratory comparisons in individual cohorts did not replicate elsewhere, while the prespecified external spectral result was inconclusive. The state-aware references rely on labels unavailable to an online forecaster, and these analyses cannot establish what a model represents internally. They show why pooled EEG forecasting scores require state-conditional interpretation before being taken as evidence of early anticipation.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+A forecast can become more accurate without becoming more informative at the moment when an early warning is needed. Consider an EEG system that repeatedly predicts whether the first N2 sleep epoch will occur within five minutes. A low average Brier score over eligible decisions is desirable, but it does not say whether the gain occurred while the person was still awake or after the recording was already scored as Stage~1 (N1). The distinction matters because the current state is associated with a different short-term event rate and because the composition of the scored risk set can dominate a pooled comparison.
+
+This is a question of \emph{what an evaluation licenses us to infer}, not simply which classifier has the best score. Proper scoring rules assess probability accuracy \citep{brier1950,gneiting2007scoring}; they do not automatically separate advance anticipation from improved accuracy later along a state transition. A time-constant prevalence reference answers whether EEG improves on that reference. A diagnostic reference given retrospectively scored state asks a different question: how much of the pooled gain is attainable using current-state information alone? Neither comparison identifies what the neural network internally represents.
+
+We revisit frozen predictions for first-N2 forecasting on Sleep-EDF, preserving original held-out results and separating them from analyses formulated after those results were examined. Three questions organize the study. \emph{Q1:} What did the prespecified comparisons against the original constant establish? \emph{Q2:} Where across wake- and Stage~1-scored inputs did pooled improvements accrue, and how did development-fitted state-aware references perform on the same decisions? \emph{Q3:} Was there reproducible incremental EEG skill beyond state and elapsed time across cohorts?
+
+We contribute an empirical evaluation account: an exact, non-causal attribution of previously recorded Brier differences to input-state strata; comparisons with retrospective stage-aware diagnostic references, evaluated without held-out refitting; and a joint interpretation of positive, inconclusive and non-replicating results across probabilistic skill, discrimination, calibration and warning utility. The scoring and multistate ingredients are established \citep{murphy1973partition,graf1999assessment,putter2007multistate,vancalster2019calibration}. The contribution investigated here is how applying them changes the interpretation of this particular EEG forecasting result, not a new architecture or a universal failure of EEG forecasting.
+
+\section{Related work}
+\label{sec:related}
+
+\textbf{Sleep-onset forecasting.} \citet{li2025falling} describe the EEG wake-to-sleep transition using a bifurcation framework and demonstrate real-time prediction of sleep progression, defining sleep onset by sustained N2; their prediction target and evaluation differ from our first-epoch five-minute event risk. \citet{su2026presleep} predict NREM2 within 5\,min from alpha--theta dynamics and report classification accuracy. \citet{beppu2025latency} relate wake-EEG indices to Stage~1 and Stage~2 latencies in daytime naps; MEDi-SOL \citep{oh2024medisol} predicts the distribution of sleep-onset latency; SSF-SET \citep{kweon2026ssfset} forecasts stage sequences on Sleep-EDF. Sleep foundation models \citep{huang2026sleepgpt,thapa2026sleepfm} learn general-purpose representations and were not used here. These works motivate prediction of the transition into sleep; our study instead examines which input-state strata contribute to pooled probabilistic skill over the pre-N2 risk set, and how retrospectively scored reference information changes its interpretation.
+
+\textbf{Landmark prediction and multistate models.} Predicting an event at successive landmarks, conditional on being event-free at each, is the landmarking approach of \citet{vanhouwelingen2007landmark}; \citet{graf1999assessment} define the corresponding time-dependent Brier score. Sleep onset is naturally a multistate process (wake, Stage~1, Stage~2, with returns to wake) in which transition probabilities depend on the current state \citep{putter2007multistate}. Our oracle-stage references are the simplest state-conditional landmark models of this kind.
+
+\textbf{Scoring rules, calibration and forecast evaluation.} We rely on the Brier score and its decomposition \citep{brier1950,murphy1973partition}, the theory of proper scoring rules \citep{gneiting2007scoring}, calibration as a separate performance dimension \citep{vancalster2019calibration,collins2024tripodai} and the observation that calibration degrades under dataset shift \citep{ovadia2019trust}. Seizure forecasting evaluates probabilistic EEG forecasts against chance or surrogate comparators \citep{winterhalder2003spc,proix2021seizure}; \citet{winterhalder2003spc} require sensitivity, false-prediction rate and horizon to be reported together. Pooling out-of-fold scores across cross-validation folds can bias AUROC when fold-specific predictions differ in level \citep{forman2010apples}; one of our exploratory analyses ran into this problem (App.~\ref{app:w2s}). App.~\ref{app:priorart} maps each component of our analysis to prior work.
+
+\section{Problem formulation and evaluation}
+\label{sec:formulation}
+\label{sec:estimands}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig1_task_schematic.pdf}
+\caption{Task schematic (illustrative timeline, not data). Decision points (triangles) occur every 30\,s from lights-off until the first scored Stage~2 epoch at $T_2$ and form the risk set $\mathcal{A}_0$. A decision at time $t$ uses only the preceding 30\,s of EEG (outlined epoch in the worked example) and is positive ($Y_t=1$) if $T_2$ falls within the horizon $(t,t+300\,\mathrm{s}]$. Colours mark the scored stage (W, N1, N2); each triangle takes the colour of its input epoch (W, including wake recurring after $T_1$, or Stage~1). This stage is never given to the models but defines the strata of the post-hoc analyses.}
+\label{fig:task}
+\end{figure}
+
+\textbf{Task and risk set.} For a night with lights-off at time $0$, decision points are $t\in\{30,60,\dots\}$\,s, and each uses only the EEG window $[t-30,t)$ (Fpz-Cz and Pz-Oz, 100\,Hz). Let $T_2$ be the onset of the first scored Stage~2 epoch, $T_1$ the onset of the first scored sleep epoch (always Stage~1 in these data), and $S(t)\in\{\mathrm{W},1\}$ the scored stage of the input epoch. Across eligible recordings, the primary prediction target has risk set $\mathcal{A}_0=\{t<T_2\}$ and label $Y_t=\mathbf{1}\{T_2\le t+h\}$ with $h=300$\,s (Fig.~\ref{fig:task}). The exploratory analyses also use estimands restricted to wake or Stage~1 inputs and a wake-to-first-N1 target (App.~\ref{app:defs}).
+
+\textbf{Scores.} For a reference $p^{\mathrm{ref}}$ and a candidate $p^{\mathrm{c}}$ on a set $\mathcal{A}$, the window-weighted Brier improvement is
+\begin{equation}\label{eq:pooled_improvement}
+\dww=\frac{1}{|\mathcal{A}|}\sum_{t\in\mathcal{A}}\Big[(p^{\mathrm{ref}}_t-Y_t)^2-(p^{\mathrm{c}}_t-Y_t)^2\Big],
+\end{equation}
+and the Brier skill is $\R=\dww/\bar B_{\mathrm{ref}}$, with $\bar B_{\mathrm{ref}}$ the mean Brier score of the reference. We report $\dww$ beside $\R$ because equal skill corresponds to different absolute changes when $\bar B_{\mathrm{ref}}$ differs. $\dse$ averages per-person rather than per-window differences.
+
+\textbf{Original reference.} Each prespecified evaluation compared against a \emph{constant} equal to the training prevalence. It was chosen during development because no time-only model beat it out of fold (\S\ref{sec:resC}); it was never claimed to be the strongest available reference.
+
+\textbf{Stage attribution.} For $s\in\{\mathrm{W},1\}$, the state contribution $C_s$ restricts the sum in Eq.~\eqref{eq:pooled_improvement} to decisions with $S(t)=s$, retaining the pooled denominator $|\mathcal{A}_0|$. Hence $\dww=C_{\mathrm{W}}+C_1$ exactly. $C_s$ is an accounting identity: it locates the pooled difference, but it does not explain it. A large Stage~1 share does not imply that the model detects Stage~1, nor that Stage~1 accounts causally for a fraction of the gain; cells differ in size, base rate and difficulty. Within-cell skill $\R_s$ uses the same reference restricted to the cell.
+
+\textbf{Oracle-stage references.} Two references were fitted on TRAIN only. \emph{Stage-only} assigns the Laplace-smoothed event rate of each scored state: 0.070 for W inputs and 0.477 for Stage~1 inputs. \emph{Stage+time} is an L2-penalised logistic regression on the Stage~1 indicator and a cubic B-spline of log elapsed time (5 knots, $C=10$, no interaction), selected from 12 configurations by person-disjoint inner cross-validation; elapsed times outside the TRAIN support (30 to 6{,}990\,s) are clamped to its boundary. Both use the retrospectively scored stage. They are diagnostics: not deployable, because the scored stage is unavailable in real time, and not upper bounds, because a forecaster may exploit information they ignore. They answer one question: how much of a model's pooled improvement is attainable from the scored state (and elapsed time) alone?
+
+\textbf{Uncertainty and discrimination.} Intervals are 95\% person-cluster percentile bootstraps \citep{davison1997bootstrap}. Each prespecified evaluation used its original bootstrap procedure; the post-hoc held-out analysis re-bootstrapped every contrast with a new seed (10{,}000 replicates). Tables state which interval is shown; the two can differ in the last digit. We distinguish within-recording AUROC and two cross-person matching schemes. \emph{Within-recording} AUROC was the diagnostic of the prespecified evaluations. Because labels are monotone in time within a recording, any increasing function of elapsed time attains a high within-recording AUROC, so this measure cannot show information beyond time. In the original held-out evaluation, \emph{elapsed-stratum-matched} AUROC compared cross-person pairs within prespecified coarse elapsed-time bins (Table~4). In the subsequent stage-conditioned analysis, \emph{exact-landmark-matched} AUROC instead compares cross-person pairs at the same 30\,s landmark. These are different estimators. Within a scored stage, the oracle references are constant at each exact landmark and therefore have matched AUROC 0.5 by construction.
+
+\section{Experimental setting}
+\label{sec:data}
+
+\textbf{Data, eligibility and splits.} Sleep-EDF Expanded v1.0.0 \citep{kemp2000sleepedf,pollard2026physionet} contains the Sleep Cassette study (SC; home recordings of healthy adults) and the Sleep Telemetry study (ST; hospital recordings on placebo and temazepam nights), scored with R\&K rules \citep{rechtschaffen1968manual}. A night is eligible if lights-off lies within the signal, no scoring gap precedes first N2, N2 is not active at lights-off and the stage at lights-off is W. SC persons were split once, by salted hash, into TRAIN (84 nights, 46 persons), VAL and TEST (15 persons each); the analysable ST nights form the external cohort EXT (28 nights, 17 persons; flow in App.~\ref{app:cohort}, Table~\ref{tab:cohort}). VAL and TEST primary analyses used one predeclared night per person; all-nights analyses were predeclared sensitivity analyses.
+
+\textbf{Models.} All models were fixed before the held-out evaluations in which they were assessed (definitions in App.~\ref{app:defs}). \emph{Constant}: the training prevalence. \emph{SpecLR-18}: logistic regression on ten log band-power and amplitude features from both channels. \emph{SpecLR-46}: the same recipe trained on all TRAIN persons. \emph{RawCNN-46}: a multiscale 1D CNN on the raw 30\,s window (114{,}817 parameters; mean of three seeds). RawCNN replaced a predeclared task-specific network after cross-validation showed that the network's additional components did not help; this was a documented deviation (App.~\ref{app:ablation}).
+
+\textbf{Training populations.} SpecLR-18 was developed in an early pilot on one night from each of 18 TRAIN persons (1{,}271 windows). Six of these persons had been retained from an earlier stage in which they were selected by observed latency, so this training set is an outcome-dependent purposive sample. SpecLR-18 was frozen in that form for VAL and carried unchanged into TEST and EXT. SpecLR-46 and RawCNN-46 used all 84 eligible nights of the 46 TRAIN persons. Comparisons between SpecLR-18 and RawCNN-46 therefore confound architecture with training population; SpecLR-46 versus RawCNN-46 holds the population fixed. The oracle references were fitted on all 46 persons and, as a sensitivity check, refitted on the 18-person roster (Stage-only$_{18}$, Stage+time$_{18}$).
+
+\textbf{Prespecified evaluation.} Model parameters, participant rosters, comparison rules and analysis code were fixed and documented before the designated held-out evaluations. The primary comparison was SpecLR-18 against the training-prevalence reference. The CNN comparison against SpecLR-18 was evaluated sequentially only when the primary comparison met its prespecified criteria; the equal-training-population contrast against SpecLR-46 was descriptive. The protocol is described in App.~\ref{app:protocol}. Eligibility and event timing had been determined from scored annotations before model assessment: the held-out populations were model-naive, but not fully outcome-blind. The validation cohort had been used previously to assess the constant and a time-binned reference, although the EEG model had not been evaluated on it. No held-out model comparison was rerun.
+
+\textbf{Retrospective analyses.} Following the initial held-out evaluations, we examined the current-stage composition of the at-risk population, attributed the original score differences to scored input states, constructed state-conditioned references on development participants, and applied those references without refitting to the existing held-out predictions. The state-conditioned held-out analysis was specified and its code checked on synthetic cases before those predictions were examined. These analyses are retrospective and descriptive; they do not constitute independent prospective tests of the new research question.
+
+
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Q1: Prespecified EEG comparisons established improvement over a constant}
+\label{sec:resA}
+
+\TableFrozen
+
+The original tests asked whether EEG forecasts improved on a training-prevalence constant, not whether they outperformed state-conditioned information. SpecLR-18 met its prespecified primary criteria in VAL (22.3\% Brier skill) and TEST (18.3\%, 95\% person-cluster interval 8.8--28.8\%; Table~\ref{tab:frozen}). In TEST, RawCNN-46 also met the sequential secondary criterion against SpecLR-18 (23.8\%, interval 4.7--41.2\%). However, this comparison changes both model and training population; with the 46-person training population held fixed, the point advantage over SpecLR-46 (19.1\%) had an interval including zero. A separate architectural advantage was not established. Prespecified all-night sensitivity results remain in Table~\ref{tab:frozen}.
+
+The primary external comparison for SpecLR-18 was inconclusive (3.4\%, interval $-$0.9 to 7.6\%). The conditional CNN comparison was consequently not formally tested in EXT. SpecLR-18 retained a within-recording AUROC near its TEST value while underpredicting the external event rate, motivating the separate examination of probability level and discrimination below. These originally recorded outcomes remain unchanged by the retrospective analyses that follow.
+
+\subsection{Q2: Most internal-test gains accrued on Stage~1-scored inputs}
+\label{sec:resB}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig2_stage_attribution.pdf}
+\caption{Exact attribution of the pooled Brier improvement over the constant to the scored stage of the input epoch, in absolute Brier units. In each row the light bar runs from 0 to the wake contribution $C_{\mathrm{W}}$ (negative for RawCNN-46 in TEST and EXT) and the dark bar from $C_{\mathrm{W}}$ to $C_{\mathrm{W}}+C_1=\dww$ (vertical tick); the Stage~1 share $C_1/\dww$ can therefore exceed 100\%. TRAIN: 5-fold cross-validated recipes. VAL, TEST, EXT: original recorded predictions; SpecLR-46 and RawCNN-46 were not scored on VAL. Marker shape denotes the cohort. Point values; stratum-specific skill with intervals is in Table~\ref{tab:r2full}. The attribution is an accounting identity: it locates the difference; it does not explain it.}
+\label{fig:attr}
+\end{figure}
+
+Among positive decision points, the input epoch was already scored Stage~1 in 62\%, 71\% and 70\% of VAL, TEST and EXT windows, respectively. The event rate on Stage~1 inputs was 43--59\%, compared with 7--8\% on wake inputs. Figure~\ref{fig:attr} partitions the \emph{original} pooled Brier difference by the scored input state; detailed interval estimates are retained in App.~\ref{app:state_strata}.
+
+\textbf{TEST.} Stage~1 contributed 99\% of each spectral model's improvement and 102\% of RawCNN-46's (above 100\% because the wake contribution was slightly negative). No EEG model established improvement over the constant on wake-scored inputs. \textbf{EXT.} The CNN likewise derived 104\% of its aggregate gain from Stage~1 inputs, but this pattern was not shared by the spectral models (35\% and 63\%). \textbf{VAL.} Wake inputs supplied 37\% of SpecLR-18's improvement. The stage concentration is therefore an empirical model-and-cohort pattern rather than a universal fact about EEG forecasts.
+
+A wake-only improvement for the CNN recipe was suggested in development cross-validation but not established for the frozen CNN in either held-out TEST or EXT. These are accounting contributions to a scored loss, not evidence that N1 causes the gain or that the network explicitly identifies N1.
+
+\subsection{Q2: Retrospective scored-stage references altered the interpretation}
+\label{sec:resC}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig3_reference_comparison.pdf}
+\caption{Brier skill relative to the constant for EEG forecasts (filled markers) and development-fitted scored-stage references (open markers on the shaded band), with 95\% participant-cluster bootstrap intervals from the retrospective re-bootstrap of the original predictions (Table~\ref{tab:central}; the original prespecified intervals are in Table~\ref{tab:frozen}). The references use the retrospectively scored stage and are diagnostic, not deployable. Rows are grouped by cohort (marker shape) and list only evaluated models: VAL evaluated SpecLR-18 only, so SpecLR-46 and RawCNN-46 have no VAL rows (not evaluated, not zero).}
+\label{fig:refs}
+\end{figure}
+
+\TableCentral
+
+The constant was legitimate for the originally specified comparison, but it could not identify whether EEG skill exceeded that available from the already-entered state. Flexible time-only references did not beat the constant in TRAIN cross-validation, whereas a reference given the retrospectively scored state did. Both oracle-reference recipes were fitted on TRAIN and transferred unchanged to held-out cohorts (Fig.~\ref{fig:refs}; Table~\ref{tab:central}).
+
+\textbf{TEST.} Stage-only and Stage+time improved on the constant by 26.3\% and 30.3\%, respectively, exceeding both spectral models. RawCNN-46 had a larger point estimate than either, but its incremental intervals included zero. \textbf{EXT.} The stage references achieved 29.5\% and 32.2\%, exceeding all three EEG models; each EEG-to-Stage+time difference had an interval excluding zero on the negative side. \textbf{VAL was different}: the references were weaker and positive incremental spectral estimates were inconclusive. A sensitivity refit of Stage-only on the 18-person development roster did not reverse the TEST/EXT pattern (App.~\ref{app:stage_reference}).
+
+This is intentionally an asymmetric \emph{diagnostic} comparison. The stage references use scorer annotations unavailable to the operational EEG forecast; they are neither deployable comparators nor performance ceilings. Falling below them does not identify the model's internal representation. It shows that improving over a constant alone is insufficient evidence of skill beyond information associated with the scored input state.
+
+\subsection{Q3: Within-state EEG advantages did not replicate consistently}
+\label{sec:resD}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig4_incremental_skill.pdf}
+\caption{Incremental Brier skill of EEG forecasts relative to the scored-stage references, over all inputs (left) and within the scored input state against Stage+time (right), with 95\% participant-cluster re-bootstrap intervals (Table~\ref{tab:central}, rows D--G). Positive values favour the EEG model; marker shape denotes the cohort. All panels share the axis range $-100$ to 62\%; the only interval extending beyond it (EXT, SpecLR-18, Stage~1 inputs; lower bound $-$133\%) is truncated at $-100\%$ and marked with an arrow. RawCNN-46 was not evaluated on VAL and therefore has no VAL rows (not evaluated, not zero). Within W-scored inputs, the only interval excluding zero is SpecLR-18 on VAL (14.6\%, 5.2 to 25.8\%), which did not replicate in TEST or EXT. These retrospective contrasts are descriptive and not adjusted for multiplicity.}
+\label{fig:incr}
+\end{figure}
+
+Within a scored input state, Stage-only reduces to a constant and Stage+time to a function of elapsed time. We therefore examined incremental EEG skill within each state against these retrospective references (Fig.~\ref{fig:incr}; Table~\ref{tab:central}, rows F--G; full person-cluster intervals in Table~\ref{tab:r3bfull}).
+
+\textbf{Stage~1.} In TEST, RawCNN-46 improved on Stage+time by 28.5\% (95\% interval 7.0--43.3\%), but this exploratory result was not reproduced in EXT ($-$15.5\%, interval $-$36.9 to 0.9\%) or established for the development CNN recipe. The spectral model did not establish a within-Stage~1 advantage in any held-out cohort. \textbf{Wake.} SpecLR-18 exceeded Stage+time in VAL (14.6\%, interval 5.2--25.8\%) but not in TEST or EXT; RawCNN-46 did not establish wake-only improvement in either held-out population. With several post-hoc strata and contrasts, these comparisons describe heterogeneity rather than independently confirmed hypotheses.
+
+Exact-landmark-matched cross-person AUROC on wake inputs nevertheless exceeded chance for RawCNN-46 in TEST and SpecLR-18 in VAL. That ranking result does not entail lower Brier risk against the time-aware reference. Stage~1 AUROC for the CNN in TEST involved only six people contributing negatives and was not assigned a confidence interval.
+
+\subsection{Q3: Probability calibration, ranking and warnings disagree}
+\label{sec:resE}
+
+\textbf{Probability level and ranking.} In EXT, SpecLR-18 retained within-recording AUROC near its TEST value but predicted probabilities averaging 0.130 below the observed event rate; its between-person Brier-level component was negative. This is compatible with probability-level degradation under shift but does not identify the mechanism \citep{ovadia2019trust}. The constant was itself poorly calibrated within Stage~1, so correcting probability level can contribute to a model's Stage~1 Brier gain.
+
+\textbf{Exploratory wake-to-first-N1 analysis.} In a TRAIN-only analysis (App.~\ref{app:w2s}; 3{,}058 windows, 763 positives), discrimination for imminent N1 was strongest within 60\,s of the first N1 (AUROC 0.88), weakening at longer lead times. No reliable improvement in Brier risk over a time-only reference was established after leakage-safe recalibration; the best estimate was 7.8\% (95\% interval $-$0.2 to 14.6\%). Recent-EEG personalization offered no additional benefit.
+
+\textbf{Warning utility.} At a fixed, untuned threshold, recalibration reduced false-alarm episodes from 3.85 to 0.71 per hour, but also reduced the proportion of first-N1 onsets preceded by an alarm in the five-minute horizon from 59\% to 24\%. Improved calibration or ranking is not, by itself, evidence of an improved operational warning policy \citep[cf.][]{winterhalder2003spc}.
+
+\section{Discussion}
+\label{sec:discussion}
+
+The central result is a change in scientific interpretation, not a reversal of the original held-out scores. EEG models can improve pooled Brier performance over a prespecified prevalence reference even when much of that improvement accrues on inputs already scored as Stage~1. Because the score averages decisions across states with different event rates, its value alone does not identify the lead time at which useful information is obtained. Nor does an accounting attribution explain the underlying model mechanism.
+
+The scored-stage references sharpen this distinction. In TEST and EXT, Stage-only matched or exceeded the spectral models' aggregate improvement. This reference is \emph{not} an online forecasting system: it receives a scorer's retrospective annotation. Its role is to diagnose an inferential gap between improvement over the original constant and improvement over information associated with the scored current state. The original constant was appropriate for the original prespecified question, yet insufficient for the stronger claim of independent early anticipation.
+
+The exceptions deserve equal prominence. The exploratory TEST CNN improvement on Stage~1 inputs and the VAL spectral improvement on wake inputs suggest additional EEG information under particular conditions, but neither replicated in the other held-out populations. Meanwhile, ranking, probabilistic calibration and alarm utility disagreed on the same prediction sequences. A more informative evaluation should therefore report risk-set composition, attribution of pooled score differences to relevant states, within-state comparisons against clearly specified references, and distinct calibration, discrimination and warning outcomes. Their uncertainty and the timing of the research questions should be stated next to the findings.
+
+These recommendations derive from a single Sleep-EDF case study. They are not evidence that similar numerical patterns occur in seizure forecasting or acute deterioration. Establishing broader generality would require independent datasets or prospective tests of the state-conditioned questions; developing operational comparisons would additionally require state information available at decision time.
+
+\section{Limitations}
+\label{sec:limitations}
+
+\textbf{Population and task.} The analysis covers one Sleep-EDF dataset family, two EEG channels, R\&K scoring and a five-minute first-N2 horizon. The held-out cohorts include only 15--17 persons each; within-wake analyses sometimes have 44--84 positive windows. Wide person-cluster intervals do not establish equivalence or absence of information, and these results need not generalize to different sensors, settings, populations or event targets.
+
+\textbf{Timing and selection.} The original model comparisons followed documented criteria. The state-conditioned scientific questions were developed after inspecting earlier held-out outcomes; subsequent code checks and computational protocol finalization do not make those questions prospective. Many strata and model contrasts were inspected without multiplicity adjustment, so their intervals are descriptive. Eligibility and event times relied on scored outcomes, every included night reached N2, and VAL had earlier been used to evaluate non-EEG references. The retrospective stage references cannot be deployed online or interpreted as upper bounds.
+
+\textbf{Confounding and mechanisms.} Six persons in the SpecLR-18 training roster were selected using observed latency, whereas SpecLR-46 and RawCNN-46 used the larger development set. An unequal-roster comparison does not identify an architecture effect. The CNN also replaced an earlier design after development cross-validation; repeated partitions of the same development participants are not independent tests. Spectral sensitivity and perturbation results do not establish a physiological mechanism or network representation.
+
+\textbf{Reproducibility.} A private reproducibility package is documented, but code licensing, reviewer access and clean-room reproduction remain unverified. Person-cluster bootstrap intervals describe sampling variability under the recorded analysis; they do not remove retrospective hypothesis-selection risk.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+For first-N2 forecasting in these Sleep-EDF cohorts, much of the internal-test Brier improvement over a constant arose on inputs already scored Stage~1, and a retrospectively state-aware reference changed the comparison with spectral EEG forecasts. Incremental within-state evidence was heterogeneous and did not replicate consistently across cohorts. The result is neither that EEG forecasting fails nor that a CNN simply recognizes sleep stage: an aggregate score alone does not establish \emph{when} predictive information becomes available. State-conditioned diagnostics make that limit of interpretation visible.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\clearpage
+\appendix
+
+\section{Cohort flow}
+\label{app:cohort}
+\TableCohort
+
+\section{Prespecified comparisons and protocol deviations}
+\label{app:protocol}
+\textbf{Prespecified decision criteria.} The primary comparison met its success criteria when the lower 95\% bound of $\dww$ exceeded zero, $\R\ge5\%$, the person-equal difference $\dse>0$, the lower within-recording AUROC bound exceeded 0.5, and the donor-EEG control had a non-positive lower interval bound. The prespecified failure criteria were an upper bound on $\R$ below 5\% or non-positive values for both point differences; otherwise the result was indeterminate. Failed permutation or integrity checks invalidated the evaluation. The CNN comparison was evaluated only if the primary criteria were met, within each cohort's predefined sequence; the matched-training-population contrast and all state-specific analyses were descriptive. \textbf{Protocol deviations.} The CNN output bias was initialized at the training prevalence, and RawCNN replaced the originally planned temporal architecture after development cross-validation (App.~\ref{app:ablation}). \textbf{Retrospective analyses.} The stage-conditioned analyses were motivated by subsequent reviews of earlier manuscript drafts. Their analysis plans and computational checks were completed before re-examining the held-out predictions; these steps do not make the hypotheses prospective. Detailed execution records, including the original protocol identifiers, are retained in the reproducibility archive.\par
+
+\TableModels
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig5_external_calibration.pdf}
+\caption{External cohort (EXT; 17 persons, 28 nights). (a) Brier skill $R$ with 95\% participant-cluster intervals from the original external evaluation: the prespecified primary contrast (dashed line: its 5\% criterion), descriptive drug-condition subgroups, descriptive EEG-versus-EEG contrasts ($\dagger$: the conditional CNN test was not reached because the primary result was inconclusive) and donor-EEG negative controls (open grey markers; each window's EEG replaced by another person's EEG from the same elapsed-time stratum, not matched on drug condition). (b) Calibration-in-the-large (mean prediction minus event rate) of each model on TEST (circles) and EXT (diamonds); arrows show the TEST-to-EXT shift. Point values.}
+\label{fig:ext}
+\end{figure}
+
+\section{Definitions}
+\label{app:defs}
+\textbf{Estimands.} E0: $\mathcal{A}_0=\{t<T_2\}$, $Y_t=\mathbf{1}\{T_2\le t+h\}$. E1 (wake$\to$first N1): $\mathcal{A}_1=\{t<T_1\}$, $Y_t=\mathbf{1}\{T_1\le t+h\}$. E2 (wake input$\to$first N2): $\{t<T_2:S(t)=\mathrm{W}\}$, split into pre-sleep ($t<T_1$) and returning wake ($t\ge T_1$), label as E0. E3 (N1$\to$N2): $\{t<T_2:S(t)=1\}$, label as E0. E1--E3 use scorer labels to define the risk set and are oracle-defined.
+
+\textbf{SpecLR features and fit.} For each channel, five 4\,s Hann-windowed frames (400 samples, zero-padded to a 512-point FFT) give mean power in 0.5--4, 4--8, 8--13 and 13--30\,Hz; features are $\log(1+\text{power})$ in each band plus $\log(1+\text{AC RMS})$, i.e.\ ten features over two channels. Features are z-scored with training means and population standard deviations (floor $10^{-6}$) and clipped to $\pm5$. Logistic regression is fitted by 350 steps of gradient descent (learning rate $0.3/(1+\text{step}/200)$, L2 penalty 0.025); predictions are clipped to $[10^{-6},1-10^{-6}]$.
+
+\textbf{RawCNN (exact executable specification).} After per-channel mean subtraction, each 30\,s input (2 channels, 3{,}000 samples) is divided by the fixed training scale of 10.141\,\textmu V and clipped to $\pm10$. Three parallel 1D convolutional stems each map 2 channels to 32 (kernels 7, 25, 101; stride 2; symmetric padding), and their 96-channel concatenation passes through GELU and GroupNorm (4 groups). The body has three kernel-7, stride-4, padding-3 convolutions: 96$\to$64, 64$\to$64 and 64$\to$64 channels. GELU follows each, with 4-group GroupNorm after the first two. Global temporal mean and $\log(\mathrm{variance}+10^{-6})$ are concatenated (128 dimensions), projected through Linear(128,32)+GELU, then Linear(32,32)+GELU, and finally Linear(32,1) to a binary logit (114{,}817 trainable parameters). The raw-only model has no trajectory GRU, elapsed-time features or hazard head. The output-head bias is initialized at the training prevalence, and optimization uses binary cross-entropy with logits, AdamW (learning rate $10^{-3}$, weight decay $10^{-3}$), batch size 256 and gradient-norm clipping at 1. Final fits use 4 epochs (chosen from development CV); probabilities are averaged over three seeds. The layer order and parameter total trace to \path{scripts/decision/h_eval/cth_v1/cth_experiment.py} (\texttt{RawBranch}, \texttt{CTHNet}, \texttt{M2\_raw\_cnn\_binary}), with the reported final-fit settings recorded in the original frozen evaluation scripts.
+
+\textbf{Calibration and discrimination.} Calibration-in-the-large is mean prediction minus event rate. Calibration slope is the coefficient of a logistic regression of $Y$ on $\mathrm{logit}(p)$ (essentially unpenalised). Within-recording AUROC averages AUROC computed within each recording. The retrospective \emph{exact-landmark-matched} AUROC compares positives with negatives from other persons at the same 30\,s landmark index $\lfloor t/30\rfloor$. The original held-out \emph{elapsed-stratum-matched} AUROC instead compares within coarser elapsed-time bins (Table~4). These estimators are not interchangeable. References constant within each compared stratum obtain AUROC 0.5 by construction.
+
+\textbf{Oracle-reference selection.} Configurations: spline knots $\{3,5\}$, $C\in\{0.1,1,10\}$, with or without a stage-by-time interaction; selection by summed Brier over person-disjoint inner folds of TRAIN. The 18-person refit selected 3 knots and $C=1$.
+
+\section{Contribution versus prior art}
+\label{app:priorart}
+{\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{0.27\linewidth}p{0.38\linewidth}p{0.29\linewidth}@{}}
+\toprule
+Component & Established prior art & Status here \\
+\midrule
+\endhead
+Brier score, skill, decomposition; proper scoring rules & \citet{brier1950,murphy1973partition,gneiting2007scoring} & Used; not novel \\
+Conditional at-risk predictions at successive times & Landmarking \citep{vanhouwelingen2007landmark}; time-dependent Brier \citep{graf1999assessment} & E0--E3 are landmark-style targets \\
+State-dependent transition probabilities & Multistate models \citep{putter2007multistate} & Oracle references are minimal state-conditional landmark models \\
+Calibration as outcome; shift degrades calibration & \citet{vancalster2019calibration,ovadia2019trust,collins2024tripodai} & Applied \\
+Evaluation of EEG event prediction & \citet{winterhalder2003spc,proix2021seizure} & Warning analysis follows the same logic \\
+Pooled cross-fold AUROC bias & \citet{forman2010apples} & Encountered in the exploratory analysis; not novel \\
+EEG approach to first N2; latency prediction & \citet{li2025falling,su2026presleep,beppu2025latency,oh2024medisol,kweon2026ssfset} & Different alignment, target or metrics \\
+\textbf{Stage attribution and state-conditioned comparisons on previously held-out predictions} & Established statistical ingredients; combination evaluated in this case study (not a priority claim) & Evaluative contribution \\
+\textbf{Empirical findings} & --- & Specific to Sleep-EDF; generality untested \\
+\bottomrule
+\end{longtable}}
+
+\FloatBarrier
+\section{Stage-stratified evaluation of held-out predictions}
+\label{app:state_strata}
+\TableRtwoFull
+
+% Permit the next section to follow the multi-page table without an empty page.
+\section{Held-out comparisons with scored-stage references}
+\label{app:stage_reference}
+\TableRthreeB
+
+\section{Exploratory wake-to-first-N1 programme}
+\label{app:w2s}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig6_w2s_exploratory.pdf}
+\caption{Exploratory TRAIN-only analysis of E1 (wake$\to$first N1; 3{,}058 windows, 763 positive, 46 persons), with 95\% person-cluster bootstrap intervals. (a) Cross-person AUROC of the TCN-5m+stage model (filled) and the time-only reference (open grey) under 300\,s time-bin or exact 30\,s landmark matching, with pairs pooled across folds or restricted to the same fold; under the primary within-fold exact matching the time reference is 0.5 by construction. (b) AUROC of positive windows in each lead-time bin against far negatives (more than 600\,s before first N1), using within-fold exact-landmark pairs; $n$ = positive windows. The bins are not connected because their overlapping intervals do not establish a monotonic trend. (c) Brier skill relative to a within-E1 time reference after nested, leakage-safe recalibration of TCN-5m+stage (filled) and for personalised variants on two fold partitions (open; circles: partition A, squares: partition B); row names as in Table~\ref{tab:p0p1}. One colour per model family is used in all panels.}
+\label{fig:w2s}
+\end{figure}
+\TableWtwoS
+\TablePzeroPone
+
+\textbf{Notes.} Estimands, references and model families were fixed in writing before fitting. On the pooled 300\,s matching, the time-only reference scored AUROC 0.377, because each fold's reference is fitted on the other folds and its level is anti-ordered with the fold's own event rate (fold-level correlation $-0.95$ for the constant); this is an instance of the cross-fold pooling bias described by \citet{forman2010apples}. With exact 30\,s matching within folds the time reference scored 0.500 by construction and the best EEG model 0.730\ci{0.646}{0.801}. On E2 pre-sleep inputs the 30\,s CNN was worse than time ($-$40.8\%\ci{$-$101.7}{$-$3.9}); on E3 a spectrogram model improved on time by 20.6\%\ci{8.1}{31.2}. Recalibration raised the best model from 0.1\%\ci{$-$20.6}{17.7} to 7.8\%\ci{$-$0.2}{14.6} and moved its calibration-in-the-large from $+0.051$ to 0.000. Replacing a person's history by another person's left predictions essentially unchanged (own minus donor 0.0\%\ci{$-$0.3}{0.4}).
+
+\FloatBarrier
+\section{Architecture ablation study (development cross-validation)}
+\label{app:ablation}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig7_architecture_ablations.pdf}
+\caption{Predeclared task-specific network versus each variant (5-fold TRAIN CV, 46 persons, 95\% person-cluster CIs); $R=(B_{\mathrm{variant}}-B_{\mathrm{full}})/B_{\mathrm{variant}}>0$ means the changed component helped. The highlighted plain CNN became RawCNN, a generic, not a proposed, architecture.}
+\label{fig:ablation}
+\end{figure}
+Removing the raw-waveform branch worsened Brier ($+8.1\%$\ci{0.1}{16.0}); removing the 5-min trajectory, replacing the hazard head, or adding elapsed-time fusion did not help, and the plain CNN was not worse than the full network ($-6.4\%$\ci{$-$15.7}{0.9}).
+
+\section{Representation and perturbation analysis (development data)}
+\label{app:interp}
+A capacity-matched log-power STFT CNN was not distinguishable from the raw CNN ($\R=-8.7\%$\ci{$-$21.6}{2.2}). Removing 0.5--4\,Hz content reduced the raw CNN's skill retention to 0.33\ci{0.21}{0.47} against 0.97 for an energy-matched control; the spectral model was most sensitive to 4--8 and 15--30\,Hz power. Integrated Gradients \citep{sundararajan2017ig} failed model-randomisation sanity checks \citep{adebayo2018sanity}, and a deletion test \citep[cf.][]{hooker2019roar} did not beat ranking by input magnitude; we draw no conclusions from attributions. Surrogates follow \citet{theiler1992surrogate,prichard1994surrogate}. These are sensitivity results and establish no physiological mechanism.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/v8r5_fig8_representation_perturbation.pdf}
+\caption{Post-hoc analyses on development data (5-fold TRAIN CV, 46 persons; 95\% person-cluster intervals). (a) $R$ of the first-named (candidate) model relative to the second (reference). (b) Window-weighted (filled) and subject-equal (open) Brier. (c) Skill retention $\rho$ (fraction of skill over the constant retained; 1 = unchanged, $<0$ = worse than the constant) after removing one band; arrows mark two intervals extending below the axis. (d) Retention after power-preserving, structure-destroying perturbations ($\dagger$ post-hoc follow-up). Marker shape repeats colour. Sensitivity results only; no mechanism or representation is established.}
+\label{fig:interp}
+\end{figure}
+
+\FloatBarrier
+\section{Additional uncertainty details for secondary contrasts}
+\label{app:secondary_intervals}
+This section provides interval estimates for secondary and exploratory contrasts not tabulated elsewhere. The reported intervals retain their original analysis-specific definitions and are descriptive unless explicitly identified as belonging to a prespecified test. Interval overlap alone is not a formal test of differences.
+
+\textbf{Prespecified discrimination.} SpecLR-18's within-recording AUROC was 0.82\ci{0.76}{0.86} in EXT and 0.80\ci{0.67}{0.91} in TEST; this was a descriptive, not formally tested, comparison.
+
+\textbf{TRAIN exploratory and reference comparisons.} The CNN recipe's wake-only skill was 20.3\%\ci{8.9}{30.5}. Two time-only references had $-0.7$\%\ci{$-$2.9}{1.4} and 0.5\%\ci{$-$1.8}{2.9} relative skill in cross-validation. Stage-only improved on constant by 22.0\%\ci{14.8}{28.8}. Relative to Stage-only, the spectral recipe had $-7.4$\%\ci{$-$20.6}{3.5} and the CNN recipe 8.3\%\ci{$-$2.3}{18.1}. The CNN's Stage~1-specific skill beyond Stage+time in TRAIN cross-validation was 10.6\%\ci{$-$3.3}{21.8}.
+
+\textbf{Exact-landmark discrimination.} Within wake-scored inputs, RawCNN-46's cross-person AUROC was 0.80\ci{0.65}{0.95} in TEST and 0.60\ci{0.49}{0.72} in EXT; SpecLR-18 was 0.78\ci{0.62}{0.91} in VAL. Within Stage~1 inputs, RawCNN-46 reached 0.64\ci{0.43}{0.88} in EXT. Over all input stages, Stage-only yielded 0.79\ci{0.70}{0.89} in TEST and 0.76\ci{0.69}{0.83} in EXT.
+
+\textbf{Calibration decomposition.} The between-person probability-level component of SpecLR-18's Brier difference in EXT was $-0.012$\ci{$-0.021$}{$-0.006$}; this is a prespecified secondary, descriptive comparison.
+
+\textbf{Wake-to-first-N1 discrimination (TRAIN only; exploratory).} Time-matched cross-person AUROC as reported in the frozen exploratory programme, stratified by time before first N1, was 0.88\ci{0.77}{0.96} within 60\,s, 0.79\ci{0.69}{0.89} at 1--2\,min, 0.74\ci{0.63}{0.84} at 2--3\,min and 0.69\ci{0.55}{0.80} at 3--5\,min. The intervals overlap and do not establish monotonic change.
+
+\section{Broader impact}
+\label{app:impact}
+Sleep-onset forecasts are discussed for drowsiness monitoring and sleep-health applications. Our results caution that much of an aggregate Brier-score improvement over a constant can accrue after the input has already been scored in an intermediate sleep state, without establishing what the model internally represents; good ranking may also coexist with poorly calibrated probabilities in a new population. Over-reliance on such forecasts in safety-critical settings could cause harm. The work uses public, de-identified data under its licence and involves no new human-subjects research.
+
+\section{Reproducibility, compute and LLM usage}
+\label{app:repro}
+\textbf{Reproducibility status.} A private reproducibility package is documented in the project records. Reviewer access, licensing, exact package contents and independent clean-room execution remain to be verified before submission. Source-backed aggregate results and the scripts for figures and tables are retained in the project repository. It excludes raw EEG (to be downloaded from PhysioNet and checked against official checksums), held-out per-window predictions and per-window stage joins. \textbf{Compute.} Analyses used one workstation (10 CPU cores, NVIDIA RTX 5090 with 32\,GB GPU memory); the confirmatory tests ran on CPU. For the TRAIN-only wake-to-N1 screening, the recorded trial log includes 30 classical fold fits, 60 neural fits, 653.3\,s attributed to classical fits and neural-family runtimes of 46.6, 179.9, 180.2 and 20.7\,s (reported by the original execution log; these are \emph{not} a complete project runtime). The audit does not yet establish wall times for every confirmation, ablation, bootstrap or failed-development experiment; total project CPU/GPU-hours cannot be certified from these logs alone. \textbf{LLM usage and responsibility.} An LLM-based coding agent implemented and executed much of the analysis code, tests and visualisations, and assisted with manuscript drafting, under the direction of the responsible investigator, who determined the research questions, study constraints and decisions. A separate language model provided methodological review of the internal and external test protocols. The validation protocol was documented by the coding agent under the investigator's direction, and the investigator authorised all evaluations. LLM-based reviews of earlier versions motivated the post-hoc analyses. The numerical checks and pre-submission self-audits were also performed using this agent; they are not independent replication. The authors take full responsibility for the content, code and data handling.
+
+\section{Source data and reproducibility}
+\label{app:trace}
+The results and figures can be traced to versioned analysis outputs and scripts in the reproducibility archive. The archive distinguishes the original held-out comparisons, subsequent state-stratified analyses, comparisons with development-fitted stage-conditioned references and exploratory development analyses. Model definitions appear in App.~\ref{app:defs}; no raw EEG is redistributed.
+
+\section{Code and data availability}
+\label{app:code_access}
+The reproducibility materials for this empirical evaluation are being packaged in a separate, paper-scoped code repository, with scripts, documented dependencies and approved aggregate outputs. The original Sleep-EDF Expanded recordings are distributed by PhysioNet under their own terms and are not included in our repository. We distinguish the original held-out evaluation from retrospective analyses; no restricted person-level prediction files are shared here.
+\ifdefined\HEVALCodeAuthorURL
+\textbf{Author-review repository (not for double-blind submission):} \href{\HEVALCodeAuthorURL}{\texttt{\HEVALCodeAuthorVisible}}. This identifiable link is intended only for internal/co-author review. Access and reproducibility claims are conditional on the completed package audit.
+\else
+\ifdefined\HEVALCodeBlindURL
+\textbf{Anonymized reviewer access:} \href{\HEVALCodeBlindURL}{\texttt{anonymous repository link}}. Repository content must be independently inspected for deanonymizing metadata before submission.
+\else
+\textbf{Pre-submission status:} reviewer access and independent clean-room reproducibility are still pending verification; no code release is claimed by this draft.
+\fi
+\fi
+
+\newpage
+\input{checklist_filled.tex}
+
+\end{document}

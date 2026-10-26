@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+# `pytest` from the repository root runs only the aggregate-only paper-artifact tests.
+# The method unit tests under scripts/decision/h_eval are run explicitly (see docs/reproducibility.md).
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

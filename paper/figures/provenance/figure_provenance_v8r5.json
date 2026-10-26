@@ -1,0 +1,177 @@
+{
+ "script": "scripts/paper/make_figures_v8r5.py",
+ "script_sha256": "3b9a5e4300f521fab5dfda93e759df2b045b43e7e591cbc84047d1bbe772b145",
+ "style_sha256": "0dc5f05d2fa64eb4a0f383a5c78b7519e92de8046da169667ad0f843efe7ad03",
+ "matplotlib": "3.10.7",
+ "inputs": {
+  "r1": {
+   "path": "results/aggregates/repair_r1/r1_stage_construct.json",
+   "sha256": "c8498547f98b1555a67fd0541cad262e2829300591f40b619bb7caa7c6835cf5",
+   "git_tracked": true
+  },
+  "r2": {
+   "path": "results/aggregates/repair_r2/r2_stage_results.json",
+   "sha256": "94016a88392c147fd581b11a80c9db960f233573ee2b34d3f7b2baf1d9a0f8a2",
+   "git_tracked": true
+  },
+  "r3b": {
+   "path": "results/aggregates/repair_r3b/r3b_results_v1.json",
+   "sha256": "afaf56edf9eb774ce4885079291a656a03754a380953db687be3d553d392024b",
+   "git_tracked": true
+  },
+  "t1": {
+   "path": "results/aggregates/gate_t1/execution_v1/gate_t1_confirmatory_result_v1.json",
+   "sha256": "87132d5fd4f098142e93ce516b813701e31a8d79e8f1a6becc4cbab1ff6ada32",
+   "git_tracked": true
+  },
+  "x1": {
+   "path": "results/aggregates/gate_x1/execution_v1/gate_x1_result_v1.json",
+   "sha256": "075598c412d8b5c0aa72d4f42eb21e9d9344dcb7305dbb04b78ca3aa833b8462",
+   "git_tracked": true
+  },
+  "cth": {
+   "path": "results/aggregates/cth_v1/cth_cv_results_v1.json",
+   "sha256": "51dffb27f882fa31e1d3a47c709ef40db11b20ec06bf547da6ec0fd8c72a8dd5",
+   "git_tracked": true
+  },
+  "p0a": {
+   "path": "results/aggregates/discovery_w2s/w2s_p0a_diagnostic_v1.json",
+   "sha256": "8663172fdb5fb1460436463c89b4901cf8e4a24365475f812c13d17d6bb090cd",
+   "git_tracked": true
+  },
+  "p0b": {
+   "path": "results/aggregates/discovery_w2s/w2s_p0b_calibration_v1.json",
+   "sha256": "052e931e486d2cce0f9b07fd6af452c3dd4885c8ba9e94d64a0dcdc659b79f6e",
+   "git_tracked": true
+  },
+  "p1": {
+   "path": "results/aggregates/discovery_w2s/w2s_p1_results_v1.json",
+   "sha256": "f2cda8276da9b0c1713d686c3d5f84acc1460f6568b9e84337c0486a6a3398d0",
+   "git_tracked": true
+  },
+  "ci": {
+   "path": "results/aggregates/discovery_w2s/w2s_v7r1_descriptive_ci.json",
+   "sha256": "fe57831bfc87d5c07d2e9d499fd929a9564542ed2761a3755d8cb8fe3f9502b9",
+   "git_tracked": true
+  },
+  "cv": {
+   "path": "results/aggregates/interp_v1/interp_partB_cv_results_v1.json",
+   "sha256": "4147878befc4fa629cf9a59e7222759531f971ae57d1eef4e087fa99cea78ddd",
+   "git_tracked": true
+  },
+  "pert": {
+   "path": "results/aggregates/interp_v1/interp_partA_perturbation_v1.json",
+   "sha256": "8dc06772d11f9e1a1b21f2a1014e02d86d8b58f2e09367566388ddb62fe77091",
+   "git_tracked": true
+  },
+  "fu": {
+   "path": "results/aggregates/interp_v1/interp_followup_F1_F2_v1.json",
+   "sha256": "f5bfe79678ebca40be7ffc828c902bce48a67a8c04d51f33ff554c8d54234050",
+   "git_tracked": true
+  }
+ },
+ "outputs": {
+  "v8r5_fig1_task_schematic": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig1_task_schematic.pdf",
+    "sha256": "c23a1094d23e4fe227feba05641244c630efe7977722451aead9a121fcbe04c6"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig1_task_schematic.png",
+    "sha256": "82e4715bce62f4ce4901e17e68f62d81cf587c6516755e866b2113c8277e7f89"
+   }
+  },
+  "v8r5_fig2_stage_attribution": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig2_stage_attribution.pdf",
+    "sha256": "6d79702eae60f46114eb4b180defe425b17c542793641823dd211c9dd1e62dc9"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig2_stage_attribution.png",
+    "sha256": "771cba3c740bc9e4b77292ebd71944b59ab8d3286ad163a7c017d55a7922bca8"
+   }
+  },
+  "v8r5_fig3_reference_comparison": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig3_reference_comparison.pdf",
+    "sha256": "698d813820c96e0377ec5cf206507c3882055f153ae6e76139fee85d80c3b002"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig3_reference_comparison.png",
+    "sha256": "5b104036d57903cd95fa753ca9da9bc82df5c3eb41aebdb7544b8fff3c247c12"
+   }
+  },
+  "v8r5_fig4_incremental_skill": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig4_incremental_skill.pdf",
+    "sha256": "aa97c022c214f0d3ef0ff01d95e9bd1036cb56db32354ec556ece4352f632d89"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig4_incremental_skill.png",
+    "sha256": "04841e327974a1a48b6661286a04424556409a68a5167b8441635c7fb7d7ebe4"
+   }
+  },
+  "v8r5_fig5_external_calibration": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig5_external_calibration.pdf",
+    "sha256": "0850d44a4c0614835b64b660b69e0d6409bcb31959d438e848fa200c12623c64"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig5_external_calibration.png",
+    "sha256": "a91191c548f3ad72e9504b941d1cb0e84590c9304d37ed074af610c474a880dd"
+   }
+  },
+  "v8r5_fig6_w2s_exploratory": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig6_w2s_exploratory.pdf",
+    "sha256": "6bf6c7a25ea97b0b01139178106dc6ea4fd9216dbab742fc693fa85ae79f83bf"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig6_w2s_exploratory.png",
+    "sha256": "a1571c1d9de08daf2780f5986d8f625bccaeffeed8d7d2bbb8885fb7a67bd1f8"
+   }
+  },
+  "v8r5_fig7_architecture_ablations": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig7_architecture_ablations.pdf",
+    "sha256": "03481127c120fa76082fd285b91e6ddde61afdabe3d154e52b21dec7793c6971"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig7_architecture_ablations.png",
+    "sha256": "7b4c6f29a527a2ba08dfef7a6b724818e43bfd8bbd8a433ffe3dd44785761e73"
+   }
+  },
+  "v8r5_fig8_representation_perturbation": {
+   "pdf": {
+    "path": "paper/figures/v8r5_fig8_representation_perturbation.pdf",
+    "sha256": "0c53d9e8f00cdfcf56b554f884f264d77a7468ad8ff0c5617a0244d55019da71"
+   },
+   "png": {
+    "path": "paper/figures/v8r5_fig8_representation_perturbation.png",
+    "sha256": "a28241b8614425b79b0a1653457800dab6c72c3f8c64c4aabec90d031e275eca"
+   }
+  }
+ },
+ "clipped_interval_ends": [
+  {
+   "context": "Fig4 vs Stage+time Stage 1-scored inputs SpecLR-18 EXT",
+   "end": "lower",
+   "true_value": -132.89114535789358,
+   "axis_limit": -100
+  },
+  {
+   "context": "Fig8c beta STFT",
+   "end": "lower",
+   "true_value": -1.8089426144015255,
+   "axis_limit": -1.6
+  },
+  {
+   "context": "Fig8c beta M0",
+   "end": "lower",
+   "true_value": -3.517863241573034,
+   "axis_limit": -1.6
+  }
+ ],
+ "n_plotted_values": 158,
+ "note": "All values read from the listed frozen JSONs; no model fitted, no interval re-estimated."
+}

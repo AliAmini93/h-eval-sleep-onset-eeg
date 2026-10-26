@@ -1,0 +1,21 @@
+# build output
+build/
+__pycache__/
+*.pyc
+.pytest_cache/
+# never commit data, private derived material or model artefacts
+data/
+.local/
+results/decision/
+*.edf
+*.EDF
+*.bdf
+*.fif
+*.npz
+*.npy
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.xls
+*.xlsx

@@ -1,0 +1,67 @@
+{
+ "flow": {
+  "SC": {
+   "source": {
+    "recordings": 153,
+    "persons": 78
+   },
+   "excluded_by_reason": {
+    "E2: OFF_CLOCK_OUTSIDE_PSG": {
+     "recordings": 3
+    },
+    "E2: SCORING_GAP_OR_OVERLAP": {
+     "recordings": 1
+    },
+    "E2: N2_ACTIVE_AT_OFF": {
+     "recordings": 5
+    },
+    "E3/E6 rule: stage at LightsOff = 1 (not W)": {
+     "recordings": 2
+    },
+    "E3/E6 rule: stage at LightsOff = R (not W)": {
+     "recordings": 1
+    }
+   },
+   "by_split": {
+    "SC_TRAIN": {
+     "analysed_recordings": 84,
+     "analysed_persons": 46
+    },
+    "SC_VALIDATION": {
+     "primary_recordings": 15,
+     "sensitivity_recordings": 12,
+     "analysed_persons": 15
+    },
+    "SC_PROTECTED_MODEL_TEST": {
+     "primary_recordings": 15,
+     "sensitivity_recordings": 15,
+     "analysed_persons": 15
+    }
+   },
+   "analysable_recordings": 141,
+   "analysable_persons": 76
+  },
+  "ST": {
+   "source": {
+    "recordings": 44,
+    "persons": 22
+   },
+   "excluded_by_reason": {
+    "E2: OFF_CLOCK_OUTSIDE_PSG": {
+     "recordings": 3
+    },
+    "E2: SCORING_GAP_OR_OVERLAP": {
+     "recordings": 13
+    }
+   },
+   "by_split": {
+    "ST_EXTERNAL_RESERVED": {
+     "analysed_recordings": 28,
+     "analysed_persons": 17
+    }
+   },
+   "analysable_recordings": 28,
+   "analysable_persons": 17
+  }
+ }
+}
