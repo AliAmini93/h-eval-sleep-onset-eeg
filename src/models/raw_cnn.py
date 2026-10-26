@@ -24,7 +24,7 @@ import torch.nn.functional as F  # noqa: E402
 from sklearn.linear_model import LogisticRegression  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+REPO = HERE.parents[1]
 DATA = REPO / '.local/h_eval/cth_v1/dataset_v1.npz'
 RES = REPO / 'results/decision/h_eval/cth_v1'
 LOC = REPO / '.local/h_eval/cth_v1'

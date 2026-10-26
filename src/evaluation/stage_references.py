@@ -13,7 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import SplineTransformer
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / 'discovery_w2s'))
+sys.path.insert(0, str(HERE.parent / 'analysis'))
 import w2s_eval as ev  # noqa: E402
 import w2s_p0a_diagnostic as p0a  # noqa: E402
 

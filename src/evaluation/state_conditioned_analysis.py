@@ -21,7 +21,7 @@ from scipy.interpolate import BSpline
 from sklearn.linear_model import LogisticRegression
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+REPO = HERE.parents[1]
 PROTOCOL = REPO / 'docs/decision/h_eval/repair_r3b/r3b_protocol_v1.md'
 TESTS = HERE / 'test_r3b_audit.py'
 RES = REPO / 'results/decision/h_eval/repair_r3b'

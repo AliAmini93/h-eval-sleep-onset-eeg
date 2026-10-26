@@ -25,7 +25,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[3]
+REPO = HERE.parents[1]
 _s = importlib.util.spec_from_file_location('cth_v1_archived', REPO / 'scripts/decision/h_eval/cth_v1/cth_experiment.py')
 cx = importlib.util.module_from_spec(_s)
 _s.loader.exec_module(cx)
