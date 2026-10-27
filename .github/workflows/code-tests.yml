@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # only needed to attach the version tag after tests pass
 
 jobs:
   synthetic-tests:
@@ -44,3 +44,36 @@ jobs:
             echo 'Forbidden raw/model artifact present'
             exit 1
           fi
+
+      - name: Prepare source-only anonymized reviewer ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/h-eval-anonymous"
+          cp -a src tests requirements.txt README.md "${RUNNER_TEMP}/h-eval-anonymous/"
+          echo 'Anonymized review snapshot. The author-identifying MIT licence and CITATION.cff are not in this review archive; the authors retain the code rights.' > "${RUNNER_TEMP}/h-eval-anonymous/REVIEW_NOTICE.txt"
+          if grep -RIEq 'AliAmini93|Ali Amini|github.com/Ali|/home/armin|/media/armin|/mnt/HDD/AliWorks' "${RUNNER_TEMP}/h-eval-anonymous"; then
+            echo 'STOP: identifying source content found in anonymous review archive'
+            exit 1
+          fi
+          (cd "${RUNNER_TEMP}" && zip -qr "${GITHUB_WORKSPACE}/h-eval-anonymous-review-source.zip" h-eval-anonymous)
+      - name: Upload reviewer source snapshot (still in private Actions; not a public anonymous URL)
+        uses: actions/upload-artifact@v4
+        with:
+          name: h-eval-anonymous-review-source
+          path: h-eval-anonymous-review-source.zip
+          retention-days: 30
+      - name: Create immutable code-release tag after all verification
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=v0.2.0-code
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "STOP: ${tag} already exists; refusing to move an immutable release tag"
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "${tag}" -m "Validated minimal H-EVAL research code (74 synthetic tests)"
+          git push origin "refs/tags/${tag}"
