@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the H-EVAL source repository. Cite the associated research paper once its bibliographic record is finalized."
+title: "H-EVAL: State-Conditioned Evaluation of EEG Sleep-Onset Forecasting"
+type: software
+authors:
+  - family-names: Amini
+    given-names: Ali
+repository-code: "https://github.com/AliAmini93/h-eval-sleep-onset-eeg"
+url: "https://github.com/AliAmini93/h-eval-sleep-onset-eeg"
+license: MIT
+version: 0.2.0
+keywords:
+  - EEG
+  - sleep-onset forecasting
+  - Brier score
+  - state-conditioned evaluation
+  - Sleep-EDF

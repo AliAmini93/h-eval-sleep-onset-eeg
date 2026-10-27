@@ -1,21 +1,16 @@
-# build output
-build/
 __pycache__/
 *.pyc
 .pytest_cache/
-# never commit data, private derived material or model artefacts
-data/
-.local/
-results/decision/
+# never commit EEG data, derived per-window files, predictions or model weights
+/data/
+/outputs/
 *.edf
 *.EDF
-*.bdf
-*.fif
+*.xls
 *.npz
 *.npy
+*.csv
 *.pt
 *.pth
 *.ckpt
 *.pkl
-*.xls
-*.xlsx
