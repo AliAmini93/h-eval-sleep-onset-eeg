@@ -89,5 +89,4 @@ bitwise identical on CPU; GPU training is not bit-reproducible (a GPU replay of 
 - Not included: approval, manifest and marker machinery of the original one-shot runs.
 
 ## Licence and citation
-The repository is private. A software licence and citation metadata are pending the authors' decision; no reuse rights
-are granted yet.
+Original H-EVAL source code is released under the [MIT License](LICENSE). See [CITATION.cff](CITATION.cff) for the software citation. The associated research article is not yet assigned a finalized bibliographic record or DOI. This repository remains **private** pending the authors' release decision. Sleep-EDF has its own data licence and is not redistributed here.
