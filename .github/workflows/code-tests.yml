@@ -1,0 +1,46 @@
+name: Code verification (synthetic, CPU)
+on:
+  push:
+    branches: [main, fix/minimal-runnable-research-code]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install pinned CPU-only dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 scipy==1.16.0 scikit-learn==1.6.1 pytest==9.1.1
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu 'torch==2.9.1+cpu'
+      - name: Verify package imports and synthetic tests
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m heval --help
+          python -m heval info
+          python -m pytest -q tests
+      - name: Check no paper build artifacts or raw EEG entered the code repo
+        shell: bash
+        run: |
+          test ! -d paper
+          test ! -d results
+          test ! -d data
+          if find . -path './.git' -prune -o -type f \( -iname '*.edf' -o -iname '*.fif' -o -iname '*.pth' -o -iname '*.pt' -o -iname '*.npz' -o -iname '*.npy' \) -print | grep -q .; then
+            echo 'Forbidden raw/model artifact present'
+            exit 1
+          fi
